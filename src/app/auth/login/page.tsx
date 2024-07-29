@@ -32,7 +32,7 @@ const LoginPage = () => {
   async function onSubmit(data: z.infer<typeof LoginSchema>) {
     try {
       const response = await api.post("/login", {
-        username: data.username,
+        email: data.email,
         password: data.password,
       });
 
@@ -103,12 +103,12 @@ const LoginPage = () => {
                       </Alert> */}
               <FormField
                 control={form.control}
-                name="username"
+                name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Username</FormLabel>
+                    <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="Username" {...field} />
+                      <Input type="email" placeholder="Email" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -121,7 +121,7 @@ const LoginPage = () => {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input placeholder="Email" {...field} />
+                      <Input type="password" placeholder="Password" {...field} />
                     </FormControl>
                     {/* <FormDescription>
                     You can quickly jump to a timestamp in the video from your
