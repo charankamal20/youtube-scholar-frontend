@@ -31,7 +31,7 @@ const LoginPage = () => {
   });
   async function onSubmit(data: z.infer<typeof LoginSchema>) {
     try {
-      const response = await api.post("/login", {
+      const response = await api.post("/auth/login", {
         email: data.email,
         password: data.password,
       });

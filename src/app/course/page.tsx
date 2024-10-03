@@ -29,9 +29,8 @@ import {
 
 import Error from "@/components/shared/Error";
 import NoteCard from "@/components/NoteCard";
-import { sampleNotes } from "@/data/constants";
 import { Separator } from "@/components/ui/separator";
-import { youtube_api } from "@/lib/api";
+import { auth_api, youtube_api } from "@/lib/api";
 import PlaylistCardComponent from "@/components/PlaylistCard";
 import { useStore } from "@/lib/store";
 import TimerComponent from "@/components/Timer";
@@ -50,20 +49,21 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useSearchParams } from "next/navigation";
-
-const videoArr: PlaylistCard[] = [];
+import { useRouter } from "next/navigation";
+import axios from "axios";
 
 const CoursePageComponent = () => {
   const [open, setOpen] = useState(false);
   const [playlistLink, setPlaylistLink] = useState("");
   const playerRef = useRef<any>(null);
   const params = useSearchParams();
-  const [url, setUrl] = useState<string | undefined>();
   const [listID, setListID] = useState<string>();
   const [error, setError] = useState<string | undefined>();
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const { zenMode, toggleZenMode } = useStore();
   const [timerType, setTimerType] = useState<"pomodoro" | "timer" | "alarm">();
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [playlistArr, setPlaylistArr] = useState<PlaylistCard[]>([]);
 
   //* Timer Component
   const [timeLeft, setTimeLeft] = useState(0);
@@ -95,6 +95,29 @@ const CoursePageComponent = () => {
       setIsRunning(true);
     }
   };
+
+  const getUserNotesByPlaylist = async () => {
+    try {
+      const response = await auth_api.get(`/notes/user/${listID}`);
+      if (response.status === 200) {
+        console.log(response.data);
+        if (response.data) {
+          setNotes(response.data);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch user notes:", error);
+      toast.error("Failed to get user notes.");
+    }
+  };
+
+  useEffect(() => {
+    getUserPlaylists();
+
+    if (listID !== undefined) {
+      getUserNotesByPlaylist();
+    }
+  }, [listID]);
 
   useEffect(() => {
     if (isRunning) {
@@ -183,16 +206,35 @@ const CoursePageComponent = () => {
     }
   }
 
-  const addPlaylistToUserList = async (value: string) => {
-    console.log("NEW LINK", value);
-    const listid = createEmbedLink();
-    const data = await fetchPlaylistInfo(listid!);
-    videoArr.push({
-      title: data?.title,
-      channel: data?.channel,
-      thumbnail: data?.thumbnail,
-      id: listid!,
-    });
+  const deleteNote = async (noteId: number) => {
+    // delete note
+    toast.loading("Deleting note...");
+    try {
+      await auth_api.delete(`/notes/user/${noteId}`);
+      toast.dismiss();
+      getUserNotesByPlaylist();
+      toast.success("Note deleted successfully");
+    } catch (error) {
+      toast.dismiss();
+      toast.error("Failed to delete note");
+    }
+  };
+
+  const getPlaylistData = async (listid: string) => {
+    try {
+      const data = await fetchPlaylistInfo(listid!);
+      const response = {
+        title: data?.title,
+        channel: data?.channel,
+        thumbnail: data?.thumbnail,
+        id: listid!,
+        url: playlistLink,
+      };
+
+      return response;
+    } catch (error) {
+      console.error("Failed to fetch playlist info:", error);
+    }
   };
 
   const createEmbedLink = () => {
@@ -221,7 +263,8 @@ const CoursePageComponent = () => {
 
     //! Save this playlist to users playlists
     console.log(newEmbedLink);
-    setUrl(newEmbedLink);
+    // setUrl(() => newEmbedLink);
+
     return listValue;
   };
 
@@ -248,6 +291,111 @@ const CoursePageComponent = () => {
     }, 2000);
   }, []);
 
+  const getUserPlaylists = async () => {
+    try {
+      const response = await auth_api.get("/playlist/user", {
+        withCredentials: true,
+      });
+
+      if (response.status === 200) {
+        const playlists = response.data;
+        const playlist_Arr: PlaylistCard[] = [];
+        playlists.forEach((playlist: any) => {
+          playlist_Arr.push({
+            id: playlist.playlist.playlist_id,
+            title: playlist.playlist.title,
+            url: playlist.playlist.url,
+            channel: playlist.playlist.channel,
+            thumbnail: playlist.playlist.thumbnail_url,
+            progress: playlist.progress
+          });
+        });
+        if (
+          playlist_Arr.length > 0 &&
+          playlistArr.length !== playlist_Arr.length
+        ) {
+          setPlaylistArr(playlist_Arr);
+        }
+      }
+    } catch (error: any) {
+      console.error("Failed to fetch user playlists:", error);
+      toast.error("Failed to fetch user playlists.");
+    }
+  };
+
+  const SubmitPlaylist = async (data: any) => {
+    console.log(data);
+    try {
+      const response = await auth_api.post("/playlist/new", {
+        title: data.title,
+        url: data.url,
+        playlist_id: data.id,
+        thumbnail_url: data.thumbnail,
+        channel: data.channel,
+        videos: playerRef.current.getPlaylist()
+      });
+      toast.dismiss();
+      if (response.status === 200) {
+        toast.success("Playlist Added Successfully 🎉");
+      }
+
+      return true;
+    } catch (error: any) {
+      toast.dismiss();
+      console.error("Failed to add playlist:", error);
+
+      toast.error("Playlist Already Exists!");
+
+      return false;
+    }
+  };
+
+  const formSubmit = async (e: any) => {
+    e.preventDefault();
+
+    if (playlistLink == "" || playlistLink == undefined) {
+      setError("Please enter a valid Youtube URL.");
+      return;
+    }
+
+    if (!isValidUrl(playlistLink)) {
+      setError("Please enter a valid Youtube URL.");
+      return;
+    } else {
+      setError(undefined);
+    }
+
+    toast.loading("Adding Playlist...");
+
+    setOpen(false);
+
+    const listid = createEmbedLink();
+
+    const playlistData = await getPlaylistData(listid!);
+
+    const result = await SubmitPlaylist(playlistData);
+
+    if (result) {
+      setListID(listid!);
+    }
+  };
+
+  const addNoteToPlaylist = async (data: any) => {
+    try {
+      const response = await auth_api.post("/notes/user", data);
+
+      console.log(response);
+      if (response.status === 200) {
+        getUserNotesByPlaylist();
+        toast.success("Note added successfully 🚀");
+        return;
+      }
+    } catch (error) {
+      toast.error("An error occured while adding note");
+      console.log(error);
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -259,26 +407,9 @@ const CoursePageComponent = () => {
               below.
             </DialogDescription>
           </DialogHeader>
-          <form
-            onClick={(e) => {
-              e.preventDefault();
-              if (!isValidUrl(playlistLink)) {
-                setError("Please enter a valid Youtube URL.");
-                return;
-              } else {
-                setError(undefined);
-              }
-              setOpen(false);
-              if (playerRef.current) {
-                addPlaylistToUserList(playlistLink);
-                return;
-              }
-              setListID(createEmbedLink()!);
-            }}
-          >
+          <form onClick={formSubmit}>
             <div className="grid gap-4 py-4">
               <div className="flex items-center gap-4">
-                <Link2 />
                 <Input
                   id="link"
                   value={playlistLink}
@@ -290,7 +421,7 @@ const CoursePageComponent = () => {
                     }
                     setPlaylistLink(e.target.value);
                   }}
-                  placeholder="Paste Link Here"
+                  placeholder="Paste YouTube Playlist Link Here"
                   type="url"
                   className="col-span-4"
                 />
@@ -447,11 +578,12 @@ const CoursePageComponent = () => {
             </TabsList>
             <TabsContent className="px-0.5 h-full" value="resources">
               <div className="ring-1 ring-gray-300 rounded-lg h-full flex flex-col justify-start items-center text-gray-400 overflow-y-scroll your-scrollable-element">
-                {sampleNotes ? (
-                  sampleNotes.map((note) => {
+                {notes.length ? (
+                  notes.map((note) => {
                     return (
                       <>
                         <NoteCard
+                          onDeleteNote={deleteNote}
                           jumpToTimestamp={jumpToTimestamp}
                           key={note.id}
                           note={note}
@@ -469,15 +601,20 @@ const CoursePageComponent = () => {
               <div className="ring-1 p-2 ring-gray-300 rounded-lg h-full flex flex-col justify-between w-full text-gray-400">
                 <div
                   className={`"h-full flex-1 overflow-y-scroll gap-y-1 flex flex-col ${
-                    videoArr ? "" : "justify-center"
+                    playlistArr.length ? "" : "justify-center"
                   } items-center"`}
                 >
-                  {videoArr ? (
-                    videoArr.map((playlist) => (
-                      <PlaylistCardComponent key={playlist.id} playlist={playlist} />
+                  {playlistArr.length ? (
+                    playlistArr.map((playlist) => (
+                      <PlaylistCardComponent
+                        key={playlist.id}
+                        playlist={playlist}
+                      />
                     ))
                   ) : (
-                    <span>Your added playlists come here!</span>
+                    <span className="text-center">
+                      Your added playlists come here!
+                    </span>
                   )}
                 </div>
                 <Separator className="my-2 w-11/12 mx-auto" />
@@ -526,7 +663,11 @@ const CoursePageComponent = () => {
             //   referrerPolicy="strict-origin-when-cross-origin"
             //   allowFullScreen
             // ></iframe>
-            <YouTubePlayer playerRef={playerRef} playlist_url={listID} />
+            <YouTubePlayer
+              submitAddNote={addNoteToPlaylist}
+              playerRef={playerRef}
+              playlist_url={listID}
+            />
           )}
         </div>
       </div>
@@ -535,8 +676,11 @@ const CoursePageComponent = () => {
 };
 
 function CoursePage() {
-  return <Suspense><CoursePageComponent /></Suspense>;
+  return (
+    <Suspense>
+      <CoursePageComponent />
+    </Suspense>
+  );
 }
-
 
 export default CoursePage;

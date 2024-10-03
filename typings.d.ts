@@ -7,11 +7,13 @@ interface Window {
 }
 
 type Note = {
-  id: string;
+  id: int;
   title: string;
-  body: string;
+  note_text: string;
   timestamp: number;
   timestampDisplay: string;
+  video_id: string;
+  playlist_id: string;
   // visibility: "public" | "private";
 };
 
@@ -22,7 +24,9 @@ type TimeCapsule = {
 
 type PlaylistCard = {
   id: string;
+  progress: int;
   title: string;
   thumbnail: string;
   channel: string;
+  url: string;
 };
