@@ -9,13 +9,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
+import { auth_api } from "@/lib/api";
+import { ToastDescription } from "@radix-ui/react-toast";
 
 const NoteCard = ({
   note,
   jumpToTimestamp,
+  onDeleteNote,
 }: {
   note: Note;
   jumpToTimestamp: (seconds: number) => void;
+  onDeleteNote: (id: number) => void;
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -46,7 +51,9 @@ const NoteCard = ({
               <DropdownMenuSeparator />
               <DropdownMenuItem>View</DropdownMenuItem>
               <DropdownMenuItem>Jump to Timestamp</DropdownMenuItem>
-              <DropdownMenuItem>Delete</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                onDeleteNote(note.id);
+              }}>Delete</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -55,7 +62,7 @@ const NoteCard = ({
             isExpanded ? "max-h-screen" : "max-h-11 line-clamp-2"
           }`}
         >
-          <p className="text-sm text-foreground">{note.body}</p>
+          <p className="text-sm text-foreground">{note.note_text}</p>
         </div>
       </div>
     </Card>

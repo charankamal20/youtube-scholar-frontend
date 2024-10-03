@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "./ui/badge";
 
-const PlaylistCardComponent = ({ playlist }: { playlist: PlaylistCard }) => {
+const PlaylistCardComponent = ({ playlist }: { playlist: PlaylistCard }  ) => {
   const { zenMode } = useStore();
   return zenMode ? (
     <Card className="w-full max-w-sm rounded-lg overflow-hidden shadow-md">
@@ -32,6 +32,14 @@ const PlaylistCardComponent = ({ playlist }: { playlist: PlaylistCard }) => {
             height={200}
             className="w-full h-48 object-cover"
           />
+          <div className="bg-gray-200 h-1 relative w-full">
+            <div
+              style={{
+                width: playlist.progress + "%",
+              }}
+              className="absolute h-1 bg-red-500"
+            ></div>
+          </div>
           <CardContent className="border p-4 flex items-center justify-between">
             <div className="flex flex-col justify-start items-start">
               <h3 className="text-lg font-semibold line-clamp-1">
@@ -73,6 +81,14 @@ const PlaylistCardComponent = ({ playlist }: { playlist: PlaylistCard }) => {
           height={200}
           className="w-full h-48 object-cover"
         />
+        <div className="bg-gray-200 h-1 relative w-full">
+          <div
+            style={{
+              width: playlist.progress + "%",
+            }}
+            className="absolute h-1 bg-red-500"
+          ></div>
+        </div>
         <CardContent className="p-4 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold line-clamp-1">
