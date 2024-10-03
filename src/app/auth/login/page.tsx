@@ -31,13 +31,13 @@ const LoginPage = () => {
   });
   async function onSubmit(data: z.infer<typeof LoginSchema>) {
     try {
-      const response = await api.post("/auth/login", {
+      const response = await api.post("/login", {
         email: data.email,
         password: data.password,
       });
 
-      const xsrfToken = response.headers["x-csrf-token"];
-      setxcsrfToken(xsrfToken);
+      // const xsrfToken = response.headers["x-csrf-token"];
+      // setxcsrfToken(xsrfToken);
       const callback = searchParams.get("callback");
       if (callback) {
         router.replace(`/${callback}`);
