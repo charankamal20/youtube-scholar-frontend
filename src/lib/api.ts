@@ -9,12 +9,12 @@ export const youtube_api = axios.create({
 });
 
 export const api = axios.create({
-  baseURL: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api`,
+  baseURL: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1`,
   withCredentials: true,
 });
 
 export const auth_api = axios.create({
-  baseURL: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api`,
+  baseURL: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1`,
   withCredentials: true,
 });
 

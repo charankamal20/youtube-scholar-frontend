@@ -5,7 +5,12 @@ export async function middleware(request: NextRequest) {
   const token = request.cookies.get("access_token")?.value;
 
   if (!token) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(
+      new URL(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/auth/google/login`,
+        request.url
+      )
+    );
   }
 
   try {
@@ -18,11 +23,21 @@ export async function middleware(request: NextRequest) {
 
     return response;
   } catch {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(
+      new URL(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/auth/google/login`,
+        request.url
+      )
+    );
   }
 }
 
 export const config = {
   runtime: "nodejs",
-  matcher: ["/dashboard/:path*", "/profile/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/profile/:path*",
+    "/learn/:path*",
+    "/course/:path*",
+  ],
 };

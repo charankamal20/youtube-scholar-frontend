@@ -4,9 +4,12 @@ export async function GET() {
   const cookieStore = cookies();
 
   // Call backend to verify token and return user info
-  const res = await fetch("http://localhost:8080/auth/user", {
-    credentials: "include",
-  });
+  const res = await fetch(
+    "{process.env.NEXT_PUBLIC_BACKEND_URL}api/v1/auth/user",
+    {
+      credentials: "include",
+    }
+  );
 
   console.log("body");
   console.log(res.body);

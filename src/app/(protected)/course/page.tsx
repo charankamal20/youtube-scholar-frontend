@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import YouTubePlayer from "@/components/VideoPlayer";
 import {
@@ -7,6 +16,7 @@ import {
   Brain,
   Disc3,
   Hourglass,
+  LucideFastForward,
   PartyPopper,
   RefreshCcw,
   Timer,
@@ -33,9 +43,6 @@ import {
 } from "@/components/ui/dialog";
 
 import Error from "@/components/shared/Error";
-import NoteCard from "@/components/NoteCard";
-import { Separator } from "@/components/ui/separator";
-import PlaylistCardComponent from "@/components/PlaylistCard";
 import { useStore } from "@/lib/store";
 import TimerComponent from "@/components/Timer";
 import PomodoroTimerComponent from "@/components/Pomodoro";
@@ -54,6 +61,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useSearchParams } from "next/navigation";
 import { auth_api, youtube_api } from "@/lib/api";
+import { Separator } from "@/components/ui/separator";
+import PlaylistCardComponent from "@/components/PlaylistCard";
+import NoteCard from "@/components/NoteCard";
 
 type TimerType = "pomodoro" | "timer" | "alarm";
 
@@ -225,25 +235,55 @@ const usePlaylist = () => {
 
   const getUserPlaylists = useCallback(async () => {
     try {
-      const response = await auth_api.get("/playlist/user", {
+      const response = await auth_api.get("/playlist", {
         withCredentials: true,
       });
-
+      console.log("User Playlists Response:", response.data);
       if (response.status === 200) {
-        const playlists = response.data.map((playlist: any) => ({
-          id: playlist.playlist.playlist_id,
-          title: playlist.playlist.title,
-          url: playlist.playlist.url,
-          channel: playlist.playlist.channel,
-          thumbnail: playlist.playlist.thumbnail_url,
-          progress: playlist.progress,
-        }));
+        if (response.data == null || response.data.length === 0) {
+          toast.dismiss();
+          return;
+        }
+
+        const playlists: PlaylistCard[] = response.data.map(
+          (playlist: any) => ({
+            id: playlist.playlist_id,
+            title: playlist.title,
+            url: playlist.url,
+            channel: playlist.channel,
+            thumbnail: playlist.thumbnail_url,
+            progress: 0, // TODO!
+          })
+        );
 
         setPlaylistArr(playlists);
       }
     } catch (error) {
       console.error("Failed to fetch user playlists:", error);
       toast.error("Failed to fetch user playlists.");
+    }
+  }, []);
+
+  const submitPlaylist = useCallback(async (data: any, playerRef: any) => {
+    try {
+      const response = await auth_api.post("/playlist", {
+        title: data.title,
+        url: data.url,
+        playlist_id: data.id,
+        thumbnail_url: data.thumbnail,
+        channel: data.channel,
+        // videos: playerRef.current.getPlaylist(),
+      });
+
+      if (response.status === 200) {
+        toast.success("Playlist Added Successfully 🎉");
+        return true;
+      }
+      return false;
+    } catch (error: any) {
+      console.error("Failed to add playlist:", error);
+      toast.error("Playlist Already Exists!");
+      return false;
     }
   }, []);
 
@@ -256,6 +296,7 @@ const usePlaylist = () => {
     setError,
     playlistArr,
     setPlaylistArr,
+    submitPlaylist,
     isValidUrl,
     extractPlaylistId,
     fetchPlaylistInfo,
@@ -329,6 +370,7 @@ const useNotes = (listID?: string) => {
 const CoursePageComponent = () => {
   // State management
   const [open, setOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [timerType, setTimerType] = useState<TimerType>();
 
@@ -414,20 +456,42 @@ const CoursePageComponent = () => {
         !playlist.playlistLink ||
         !playlist.isValidUrl(playlist.playlistLink)
       ) {
+        playlist.setError("Please enter a valid YouTube URL.");
         return;
       }
 
       const listId = playlist.extractPlaylistId(playlist.playlistLink);
       if (!listId) {
+        console.error("Invalid playlist URL:", playlist.playlistLink);
         playlist.setError("Invalid playlist URL");
         return;
       }
-
-      setOpen(false);
       playlist.setListID(listId);
-      toast.success("Playlist loaded successfully!");
+      setOpen(false);
+
+      const playlistInfo = await playlist.fetchPlaylistInfo(
+        playlist.listID ? playlist.listID : ""
+      );
+
+      const playlistData = {
+        title: playlistInfo.title,
+        channel: playlistInfo.channel,
+        thumbnail: playlistInfo.thumbnail,
+        id: playlist.listID,
+        url: playlist.playlistLink,
+      };
+
+      const loadingToast = toast.loading("Adding Playlist...");
+      // Submit to server
+      const success = await playlist.submitPlaylist(playlistData, playerRef);
+
+      if (success) {
+        await playlist.getUserPlaylists(); // Refresh playlist list
+      }
+
+      toast.dismiss(loadingToast);
     },
-    [playlist]
+    [playlist, playerRef]
   );
 
   const handleJumpToTimestamp = useCallback((seconds: number) => {
@@ -570,16 +634,27 @@ const CoursePageComponent = () => {
           </div>
 
           {/* Music Toggle */}
-          <Button
-            onClick={() => setIsMusicPlaying(!isMusicPlaying)}
-            variant="ghost"
-            size="sm"
-            className="hover:bg-gray-100 transition-colors"
-          >
-            <Disc3
-              className={`h-4 w-4 ${isMusicPlaying ? "animate-spin" : ""}`}
-            />
-          </Button>
+          <div>
+            <Button
+              onClick={() => setIsMusicPlaying(!isMusicPlaying)}
+              variant="ghost"
+              size="sm"
+              className="hover:bg-gray-100 transition-colors"
+            >
+              <Disc3
+                className={`h-4 w-4 ${isMusicPlaying ? "animate-spin" : ""}`}
+              />
+            </Button>
+
+            <Button
+              onClick={() => setSheetOpen(!sheetOpen)}
+              variant="ghost"
+              size="sm"
+              className="hover:bg-gray-100 cursor-pointer transition-colors"
+            >
+              <LucideFastForward className={`h-4 w-4 rotate-180`} />
+            </Button>
+          </div>
         </header>
 
         {/* Video Player */}
@@ -634,66 +709,79 @@ const CoursePageComponent = () => {
         </div>
 
         {/* Sidebar */}
-        {/* <div className="bg-white h-20 rounded-lg border">
-          <Tabs defaultValue="notes" className="h-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="notes">Notes</TabsTrigger>
-              <TabsTrigger value="playlists">Playlists</TabsTrigger>
-            </TabsList>
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+          <SheetContent>
+            <SheetHeader>
+              <SheetTitle>
+                You can find your playlists and Notes here
+              </SheetTitle>
+              <SheetDescription className="h-full flex flex-col">
+                <div className="bg-white h-20 rounded-lg border">
+                  <Tabs defaultValue="notes" className="h-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="notes">Notes</TabsTrigger>
+                      <TabsTrigger value="playlists">Playlists</TabsTrigger>
+                    </TabsList>
 
-            <TabsContent value="notes" className="p-4 h-full">
-              <div className="h-full overflow-y-auto space-y-2">
-                {notes.notes.length > 0 ? (
-                  notes.notes.map((note) => (
-                    <NoteCard
-                      key={note.id}
-                      note={note}
-                      onDeleteNote={notes.deleteNote}
-                      jumpToTimestamp={handleJumpToTimestamp}
-                    />
-                  ))
-                ) : (
-                  <div className="flex items-center justify-center h-full text-gray-500">
-                    <p>No notes yet. Start taking notes!</p>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
+                    <TabsContent value="notes" className="p-4 h-full">
+                      <div className="h-full overflow-y-auto space-y-2">
+                        {notes.notes.length > 0 ? (
+                          notes.notes.map((note) => (
+                            <NoteCard
+                              key={note.id}
+                              note={note}
+                              onDeleteNote={notes.deleteNote}
+                              jumpToTimestamp={handleJumpToTimestamp}
+                            />
+                          ))
+                        ) : (
+                          <div className="flex items-center justify-center h-full text-gray-500">
+                            <p>No notes yet. Start taking notes!</p>
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
 
-            <TabsContent value="playlists" className="p-4 h-full">
-              <div className="h-full flex flex-col">
-                <div className="flex-1 overflow-y-auto space-y-2 mb-4">
-                  {playlist.playlistArr.length > 0 ? (
-                    playlist.playlistArr.map((playlistItem) => (
-                      <PlaylistCardComponent
-                        key={playlistItem.id}
-                        playlist={playlistItem}
-                      />
-                    ))
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-gray-500">
-                      <p>No playlists added yet</p>
-                    </div>
-                  )}
+                    <TabsContent value="playlists" className="p-4 h-full">
+                      <div className="h-full flex flex-col">
+                        <div className="flex-1 overflow-y-auto space-y-2 mb-4">
+                          {playlist.playlistArr.length}
+                          {playlist.playlistArr.length > 0 ? (
+                            playlist.playlistArr.map((playlistItem) => (
+                              <PlaylistCardComponent
+                                key={playlistItem.id}
+                                playlist={playlistItem}
+                              />
+                            ))
+                          ) : (
+                            <div className="flex items-center justify-center h-full text-gray-500">
+                              <p>No playlists added yet</p>
+                            </div>
+                          )}
+                        </div>
+
+                        <Separator className="my-4" />
+
+                        <Button
+                          onClick={() => {
+                            playlist.setPlaylistLink("");
+                            setOpen(true);
+                          }}
+                          disabled={zenMode}
+                          className="w-full"
+                        >
+                          <RefreshCcw className="h-4 w-4 mr-2" />
+                          Add Playlist
+                        </Button>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
                 </div>
-
-                <Separator className="my-4" />
-
-                <Button
-                  onClick={() => {
-                    playlist.setPlaylistLink("");
-                    setOpen(true);
-                  }}
-                  disabled={zenMode}
-                  className="w-full"
-                >
-                  <RefreshCcw className="h-4 w-4 mr-2" />
-                  Add Playlist
-                </Button>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div> */}
+              </SheetDescription>
+            </SheetHeader>
+          </SheetContent>
+        </Sheet>
+        {/*  */}
       </div>
     </>
   );

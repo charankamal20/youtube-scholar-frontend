@@ -23,7 +23,7 @@ async function fetchPublicKeyFromBackend(): Promise<Buffer> {
 
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/public-key`,
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/auth/public-key`,
       {
         signal: controller.signal,
         headers: {

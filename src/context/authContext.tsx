@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     document.cookie = "access_token=; Max-Age=0; path=/";
-    window.location.href = "/login";
+    window.location.href = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/auth/google/login`;
   };
 
   return (
